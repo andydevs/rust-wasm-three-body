@@ -2,6 +2,7 @@ mod utils;
 
 use wasm_bindgen::prelude::*;
 
+const RADIUS: f32 = 10.0;
 const MASS: f32 = 10.0;
 const GRAVITY: f32 = 100.0;
 
@@ -32,10 +33,12 @@ fn gravity_equation(target: Vector2D, source: Vector2D) -> Vector2D {
     // Determine distance and direction to source from target
     let rel = vec2_add(source, vec2_scale(-1.0, target));
     let dir = vec2_norm(rel);
-    let mag2 = vec2_mag2(rel);
+    let true_mag = vec2_mag2(rel).sqrt();
+    // Cap minimum distance to radius*2
+    let mag = true_mag.max(2.0*RADIUS);
 
     // Compute force value due to gravity
-    let gravity = GRAVITY * MASS / mag2;
+    let gravity = GRAVITY * MASS / (mag*mag);
 
     // Scale direction based on gravity
     vec2_scale(gravity, dir)
@@ -57,6 +60,10 @@ impl ThreeBodySystem {
         }
     }
 
+    pub fn get_radius(&self) -> f32 {
+        RADIUS
+    }
+
     pub fn get_state(&self) -> *const f32 {
         self.positions.as_ptr()
     }
@@ -65,9 +72,15 @@ impl ThreeBodySystem {
         6
     }
 
-    pub fn initialize_position(&mut self, xA: f32, yA: f32, xB: f32, yB: f32, xC: f32, yC: f32) {
+    pub fn initialize_position(&mut self, x_a: f32, y_a: f32, x_b: f32, y_b: f32, x_c: f32, y_c: f32) {
         self.positions = [
-            xA, yA, xB, yB, xC, yC
+            x_a, y_a, x_b, y_b, x_c, y_c
+        ]
+    }
+
+    pub fn initialize_velocity(&mut self, x_a: f32, y_a: f32, x_b: f32, y_b: f32, x_c: f32, y_c: f32) {
+        self.velocities = [
+            x_a, y_a, x_b, y_b, x_c, y_c
         ]
     }
 
