@@ -1,0 +1,31 @@
+{
+	"name": "Rust WASM",
+	"image": "mcr.microsoft.com/devcontainers/base:jammy",
+	"features": {
+		"ghcr.io/devcontainers/features/node:1": {
+			"nodeGypDependencies": true,
+			"version": "lts",
+			"pnpmVersion": "latest",
+			"nvmVersion": "latest"
+		},
+		"ghcr.io/devcontainers/features/rust:1": {
+			"version": "latest",
+			"profile": "minimal",
+			"targets": "aarch64-unknown-linux-gnu"
+		},
+		"ghcr.io/lee-orr/rusty-dev-containers/wasm-bindgen-cli:0": {},
+		"ghcr.io/lumenpink/devcontainer-features/wasm-pack:0": {}
+	},
+    "customizations": {
+        "vscode": {
+            "extensions": [
+				"vadimcn.vscode-lldb",
+				"rust-lang.rust-analyzer"
+			]
+        }
+    },
+	"remoteUser": "root",
+	"containerEnv": {
+		"NODE_OPTIONS": "--openssl-legacy-provider"
+	}
+}
