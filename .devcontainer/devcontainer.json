@@ -13,7 +13,6 @@
 			"profile": "minimal",
 			"targets": "aarch64-unknown-linux-gnu"
 		},
-		"ghcr.io/lee-orr/rusty-dev-containers/wasm-bindgen-cli:0": {},
 		"ghcr.io/lumenpink/devcontainer-features/wasm-pack:0": {}
 	},
     "customizations": {
