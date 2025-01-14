@@ -16,7 +16,7 @@ macro_rules! log {
 
 use wasm_bindgen::prelude::*;
 
-const GRAVITY: f32 = 10.0;
+const GRAVITY: f32 = 20.0;
 const RADIUS: f32 = 25.0;
 const COLLISIONS: bool = true;
 const COLLISION_ENERGY_LOSS: f32 = 0.80;
