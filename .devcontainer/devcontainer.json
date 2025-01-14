@@ -13,7 +13,9 @@
 			"profile": "minimal",
 			"targets": "aarch64-unknown-linux-gnu"
 		},
-		"ghcr.io/lumenpink/devcontainer-features/wasm-pack:0": {}
+		"ghcr.io/lumenpink/devcontainer-features/wasm-pack:0": {
+			"version": "latest"
+		}
 	},
     "customizations": {
         "vscode": {

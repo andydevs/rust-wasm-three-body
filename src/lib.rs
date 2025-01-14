@@ -1,52 +1,170 @@
 mod utils;
 
+use std::ops::Add;
+use std::ops::Div;
+use std::ops::Mul;
+use std::ops::Sub;
+
+// Println
+extern crate web_sys;
+#[allow(unused_macros)]
+macro_rules! log {
+    ( $( $t:tt )* ) => {
+        web_sys::console::log_1(&format!( $( $t )* ).into());
+    }
+}
+
 use wasm_bindgen::prelude::*;
 
-const RADIUS: f32 = 10.0;
-const MASS: f32 = 10.0;
-const GRAVITY: f32 = 100.0;
+const GRAVITY: f32 = 10.0;
+const RADIUS: f32 = 25.0;
+const COLLISIONS: bool = true;
+const COLLISION_ENERGY_LOSS: f32 = 0.80;
 
-type Vector2D = [f32; 2];
+#[derive(Clone, Copy, Debug)]
+struct Vector2D(f32, f32);
 
-fn vec2_scale(s: f32, v: Vector2D) -> Vector2D {
-    [ v[0]*s, v[1]*s ]
+impl Default for Vector2D {
+    fn default() -> Self {
+        Self(0.0, 0.0)
+    }
 }
 
-fn vec2_add(a: Vector2D, b: Vector2D) -> Vector2D {
-    [ a[0]+b[0], a[1]+b[1] ]
+impl Add for Vector2D {
+    type Output = Self;
+
+    fn add(self, Self(x, y): Self) -> Self::Output {
+        Self(self.0 + x, self.1 + y)
+    }
 }
 
-fn vec2_mag2(v: Vector2D) -> f32 {
-    v.iter().map(|x| x*x).sum::<f32>()
+impl Sub for Vector2D {
+    type Output = Self;
+
+    fn sub(self, Self(x, y): Self) -> Self::Output {
+        Self(self.0 - x, self.1 - y)
+    }
 }
 
-fn vec2_norm(v: Vector2D) -> Vector2D {
-    let mag = vec2_mag2(v).sqrt();
-    let inv = 1.0/mag;
-    vec2_scale(inv, v)
+impl Mul<f32> for Vector2D {
+    type Output = Self;
+
+    fn mul(self, s: f32) -> Self::Output {
+        Self(self.0*s, self.1*s)
+    }
 }
+
+impl Mul<Vector2D> for f32 {
+    type Output = Vector2D;
+
+    fn mul(self, rhs: Vector2D) -> Self::Output {
+        rhs*self    
+    }
+}
+
+impl Div<f32> for Vector2D {
+    type Output = Self;
+
+    fn div(self, s: f32) -> Self::Output {
+        Self(self.0/s, self.1/s)
+    }
+}
+
+impl Vector2D {
+    fn mag2(&self) -> f32 {
+        self.0*self.0 + self.1*self.1
+    }
+
+    fn norm(self) -> Vector2D {
+        self / self.mag2().sqrt()
+    }
+}
+
 
 /**
  * Compute effect of gravity on target from source
  */
 fn gravity_equation(target: Vector2D, source: Vector2D) -> Vector2D {
     // Determine distance and direction to source from target
-    let rel = vec2_add(source, vec2_scale(-1.0, target));
-    let dir = vec2_norm(rel);
-    let true_mag = vec2_mag2(rel).sqrt();
+    let rel = source - target;
+    let dir = rel.norm();
+    let true_mag = rel.mag2().sqrt();
     // Cap minimum distance to radius*2
     let mag = true_mag.max(2.0*RADIUS);
 
     // Compute force value due to gravity
-    let gravity = GRAVITY * MASS / (mag*mag);
+    let gravity = GRAVITY / (mag*mag);
 
     // Scale direction based on gravity
-    vec2_scale(gravity, dir)
+    gravity * dir
+}
+
+
+#[derive(Debug, Default)]
+struct Body {
+    position: Vector2D,
+    velocity: Vector2D
+}
+
+impl Body {
+    pub fn new(pos: Vector2D, vel: Vector2D) -> Body {
+        Body {
+            position: pos,
+            velocity: vel
+        }
+    }
+
+    pub fn updated<ForceFunc>(&self, dt: f32, force_func: ForceFunc) -> Body
+        where ForceFunc: Fn(Vector2D, Vector2D) -> Vector2D
+    {
+        let force = force_func(self.position, self.velocity);
+        let new_position = self.position + self.velocity*dt;
+        let new_velocity = self.velocity + force*dt;
+        Body::new(new_position, new_velocity)
+    }
+
+    pub fn collision_correct(&self, width: f32, height: f32) -> Body
+    {
+        let xp = width/2.0 - RADIUS;
+        let xn = -xp;
+        let yp = height/2.0 - RADIUS;
+        let yn = -yp;
+        if COLLISIONS {
+            if self.position.0 < xn {
+                let new_position = Vector2D(xn, self.position.1);
+                let new_velocity = Vector2D(-self.velocity.0, self.velocity.1);
+                Body::new(new_position, COLLISION_ENERGY_LOSS*new_velocity)
+            }
+            else if self.position.0 > xp {
+                
+                let new_position = Vector2D(xp, self.position.1);
+                let new_velocity = Vector2D(-self.velocity.0, self.velocity.1);
+                Body::new(new_position, COLLISION_ENERGY_LOSS*new_velocity)
+            }
+            else if self.position.1 < yn {
+                
+                let new_position = Vector2D(self.position.0, yn);
+                let new_velocity = Vector2D(self.velocity.0, -self.velocity.1);
+                Body::new(new_position, COLLISION_ENERGY_LOSS*new_velocity)
+            }
+            else if self.position.1 > yp {
+                
+                let new_position = Vector2D(self.position.0, yp);
+                let new_velocity = Vector2D(self.velocity.0, -self.velocity.1);
+                Body::new(new_position, COLLISION_ENERGY_LOSS*new_velocity)
+            }
+            else {
+                Body::new(self.position, self.velocity)
+            }
+        }
+        else { Body::new(self.position, self.velocity) }
+    }
 }
 
 
 #[wasm_bindgen]
 pub struct ThreeBodySystem {
+    bodies: [Body; 3],
     positions: [f32; 6],
     velocities: [f32; 6]
 }
@@ -55,6 +173,7 @@ pub struct ThreeBodySystem {
 impl ThreeBodySystem {
     pub fn new() -> ThreeBodySystem {
         ThreeBodySystem {
+            bodies: [ Body::default(), Body::default(), Body::default() ],
             positions: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
             velocities: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         }
@@ -72,67 +191,67 @@ impl ThreeBodySystem {
         6
     }
 
+    fn state_to_bodies(&mut self) {
+        for i in 0..3 {
+            self.bodies[i] = Body::new(
+                Vector2D(self.positions[2*i], self.positions[2*i + 1]),
+                Vector2D(self.velocities[2*i], self.velocities[2*i + 1])
+            );
+        };
+    }
+
+    fn bodies_to_state(&mut self) {
+        for i in 0..3 {
+            self.positions[2*i] = self.bodies[i].position.0;
+            self.positions[2*i + 1] = self.bodies[i].position.1;
+        };
+    }
+
     pub fn initialize_position(&mut self, x_a: f32, y_a: f32, x_b: f32, y_b: f32, x_c: f32, y_c: f32) {
-        self.positions = [
-            x_a, y_a, x_b, y_b, x_c, y_c
-        ]
+        self.positions = [ x_a, y_a, x_b, y_b, x_c, y_c ];
+        self.state_to_bodies();
     }
 
     pub fn initialize_velocity(&mut self, x_a: f32, y_a: f32, x_b: f32, y_b: f32, x_c: f32, y_c: f32) {
-        self.velocities = [
-            x_a, y_a, x_b, y_b, x_c, y_c
-        ]
+        self.velocities = [ x_a, y_a, x_b, y_b, x_c, y_c ];
+        self.state_to_bodies();
     }
 
-    pub fn physics_update(&mut self, dt: f32) {
-        // Get vectors for position and velocity of three bodies
-        let pa = [self.positions[0], self.positions[1]];
-        let pb = [self.positions[2], self.positions[3]];
-        let pc = [self.positions[4], self.positions[5]];
-        let va = [self.velocities[0], self.velocities[1]];
-        let vb = [self.velocities[2], self.velocities[3]];
-        let vc = [self.velocities[4], self.velocities[5]];
+    pub fn physics_update(&mut self, dt: f32, width: f32, height: f32) {
+        // Create bodies
+        let ba = &self.bodies[0];
+        let bb = &self.bodies[1];
+        let bc = &self.bodies[2];
 
-        // Compute forces due to gravity for each body
-        let f_on_a_from_b = gravity_equation(pa, pb);
-        let f_on_a_from_c = gravity_equation(pa, pc);
-        let f_on_b_from_a = gravity_equation(pb, pa);
-        let f_on_b_from_c = gravity_equation(pb, pc);
-        let f_on_c_from_a = gravity_equation(pc, pa);
-        let f_on_c_from_b = gravity_equation(pc, pb);
+        // Compute updated forces
+        let new_ba = ba
+            .updated(dt, |p, _v| {
+                let f1 = gravity_equation(p, bb.position);
+                let f2 = gravity_equation(p, bc.position);
+                f1 + f2
+            })
+            .collision_correct(width, height);
+        let new_bb = bb
+            .updated(dt, |p, _v| {
+                let f1 = gravity_equation(p, ba.position);
+                let f2 = gravity_equation(p, bc.position);
+                f1 + f2
+            })
+            .collision_correct(width, height);
+        let new_bc = bc
+            .updated(dt, |p, _v| {
+                let f1 = gravity_equation(p, ba.position);
+                let f2 = gravity_equation(p, bb.position);
+                f1 + f2
+            })
+            .collision_correct(width, height);
 
-        // Sum forces for each object
-        let f_on_a = vec2_add(f_on_a_from_b, f_on_a_from_c);
-        let f_on_b = vec2_add(f_on_b_from_a, f_on_b_from_c);
-        let f_on_c = vec2_add(f_on_c_from_a, f_on_c_from_b);
-
-        // Determine velocity updates
-        let aa = vec2_scale(1.0/MASS, f_on_a);
-        let ab = vec2_scale(1.0/MASS, f_on_b);
-        let ac = vec2_scale(1.0/MASS, f_on_c);
-
-        // Update positions
-        let upa = vec2_add(pa, vec2_scale(dt, va));
-        let upb = vec2_add(pb, vec2_scale(dt, vb));
-        let upc = vec2_add(pc, vec2_scale(dt, vc));
-
-        // Update velocities
-        let uva = vec2_add(va, vec2_scale(dt, aa));
-        let uvb = vec2_add(vb, vec2_scale(dt, ab));
-        let uvc = vec2_add(vc, vec2_scale(dt, ac));
+        // Update bodies
+        self.bodies[0] = new_ba;
+        self.bodies[1] = new_bb;
+        self.bodies[2] = new_bc;
 
         // Update state
-        self.positions = [ upa[0], upa[1],
-                           upb[0], upb[1],
-                           upc[0], upc[1] ];
-        self.velocities = [ uva[0], uva[1],
-                            uvb[0], uvb[1],
-                            uvc[0], uvc[1] ];
+        self.bodies_to_state();
     }
-}
-
-
-#[wasm_bindgen]
-pub fn greet() {
-    
 }
