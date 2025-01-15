@@ -1,0 +1,36 @@
+{
+  "name": "rust-wasm-three-body",
+  "version": "0.1.0",
+  "description": "three body simulation written in rust",
+  "main": "index.js",
+  "private": true,
+  "scripts": {
+    "build": "webpack --config webpack.config.js",
+    "start": "webpack-dev-server"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andydevs/rust-wasm-three-body.git"
+  },
+  "keywords": [
+    "webassembly",
+    "wasm",
+    "rust",
+    "webpack"
+  ],
+  "author": "Anshul Kharbanda",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/andydevs/rust-wasm-three-body/issues"
+  },
+  "homepage": "https://github.com/andydevs/rust-wasm-three-body#readme",
+  "dependencies": {
+    "rust-wasm-three-body": "file:../rw3b/pkg"
+  },
+  "devDependencies": {
+    "copy-webpack-plugin": "^12.0.2",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.0"
+  }
+}
