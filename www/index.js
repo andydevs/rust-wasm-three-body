@@ -36,10 +36,22 @@ class Body {
 
 // Initialize canvas
 let canvas = document.getElementById('rw3b-canvas')
-let width = canvas.width
-let height = canvas.height
 let ctx = canvas.getContext('2d')
-let origin = [ width/2, height/2 ]
+let width
+let height
+let origin
+
+let resize = (e) => {
+    canvas.width = document.body.clientWidth
+    canvas.height = document.body.clientHeight
+    width = canvas.width
+    height = canvas.height
+    origin = [ width/2, height/2 ]
+}
+resize()
+
+
+window.onresize = resize
 
 // Initialize system and bodies
 let system = ThreeBodySystem.new()
